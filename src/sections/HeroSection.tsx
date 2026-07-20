@@ -44,11 +44,6 @@ export function HeroSection({ bandsRef, scrollRef, playing, onToggle, reducedMot
         </div>
 
         <div className="relative h-[78vh]">
-          {/* Dark luminous stage so the additive spectrum particles glow on a light page */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 h-[64vh] w-[64vh] -translate-x-1/2 -translate-y-1/2 rounded-full [background:radial-gradient(closest-side,rgba(12,9,40,0.92),rgba(24,16,70,0.45)_44%,rgba(24,16,70,0.08)_66%,transparent_78%)]"
-          />
           <LiquidOrb bandsRef={bandsRef} scrollRef={scrollRef} reducedMotion={reducedMotion} />
           <div className="absolute right-[4%] top-[8%]"><StatCard value="24-bit" label="lossless" /></div>
           <div className="absolute bottom-[14%] right-[10%]"><StatCard value="360°" label="spatial" /></div>

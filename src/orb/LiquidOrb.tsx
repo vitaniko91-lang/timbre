@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { createOrbMaterial } from './orbMaterial'
 import { bandsToUniforms } from '../audio/bandsToUniforms'
 import type { Bands } from '../audio/computeBands'
@@ -8,29 +9,6 @@ interface Props {
   bandsRef: React.RefObject<Bands>
   scrollRef: React.RefObject<number>
   reducedMotion: boolean
-}
-
-const PARTICLES = 7000
-
-/** Fibonacci sphere — evenly distributed points on a unit sphere. */
-function buildGeometry() {
-  const positions = new Float32Array(PARTICLES * 3)
-  const rand = new Float32Array(PARTICLES)
-  const golden = Math.PI * (3 - Math.sqrt(5))
-  for (let i = 0; i < PARTICLES; i++) {
-    const y = 1 - (i / (PARTICLES - 1)) * 2
-    const r = Math.sqrt(1 - y * y)
-    const theta = golden * i
-    positions[i * 3] = Math.cos(theta) * r
-    positions[i * 3 + 1] = y
-    positions[i * 3 + 2] = Math.sin(theta) * r
-    // deterministic per-particle pseudo-random (no Math.random for reproducibility)
-    rand[i] = ((Math.sin(i * 12.9898) * 43758.5453) % 1 + 1) % 1
-  }
-  const geo = new THREE.BufferGeometry()
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-  geo.setAttribute('aRand', new THREE.BufferAttribute(rand, 1))
-  return geo
 }
 
 export function LiquidOrb({ bandsRef, scrollRef, reducedMotion }: Props) {
@@ -43,17 +21,26 @@ export function LiquidOrb({ bandsRef, scrollRef, reducedMotion }: Props) {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
     renderer.setPixelRatio(dpr)
     renderer.setSize(mount.clientWidth, mount.clientHeight)
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 1.15
     mount.appendChild(renderer.domElement)
 
     const scene = new THREE.Scene()
-    const camera = new THREE.PerspectiveCamera(45, mount.clientWidth / mount.clientHeight, 0.1, 100)
-    camera.position.z = 3.4
+    const camera = new THREE.PerspectiveCamera(42, mount.clientWidth / mount.clientHeight, 0.1, 100)
+    camera.position.z = 3.6
 
-    const geometry = buildGeometry()
+    const pmrem = new THREE.PMREMGenerator(renderer)
+    const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+    scene.environment = envTex
+
+    // key + rim lights to give the glass specular pop
+    const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(2, 3, 4); scene.add(key)
+    const rim = new THREE.DirectionalLight(0x9ab4ff, 1.4); rim.position.set(-3, -1, -2); scene.add(rim)
+
+    const geometry = new THREE.IcosahedronGeometry(1, 48)
     const material = createOrbMaterial()
-    material.uniforms.uPixelRatio.value = dpr
-    const points = new THREE.Points(geometry, material)
-    scene.add(points)
+    const mesh = new THREE.Mesh(geometry, material)
+    scene.add(mesh)
 
     let raf = 0
     let visible = true
@@ -61,6 +48,7 @@ export function LiquidOrb({ bandsRef, scrollRef, reducedMotion }: Props) {
     io.observe(mount)
 
     const clock = new THREE.Clock()
+    const u = material.userData.uniforms
     const renderOnce = () => renderer.render(scene, camera)
 
     const onPointer = (e: PointerEvent) => {
@@ -73,30 +61,20 @@ export function LiquidOrb({ bandsRef, scrollRef, reducedMotion }: Props) {
     const loop = () => {
       raf = requestAnimationFrame(loop)
       if (!visible) return
-      const u = material.uniforms
-      const t = clock.getElapsedTime()
-      u.uTime.value = t
+      u.uTime.value = clock.getElapsedTime()
       u.uScroll.value = scrollRef.current
-      u.uReveal.value = Math.min(1, t / 1.6) // entrance: particles assemble over ~1.6s
       const mapped = bandsToUniforms(bandsRef.current)
       u.uAudioAmp.value += (mapped.uAudioAmp - u.uAudioAmp.value) * 0.14
       u.uSparkle.value += (mapped.uSparkle - u.uSparkle.value) * 0.14
-      ;(u.uSpectrum.value as THREE.Color).setRGB(mapped.uSpectrum[0], mapped.uSpectrum[1], mapped.uSpectrum[2])
-      // gentle auto-rotate + cursor parallax (transform-only)
+      u.uSpectrum.value.setRGB(mapped.uSpectrum[0], mapped.uSpectrum[1], mapped.uSpectrum[2])
       const p = pointerRef.current
-      points.rotation.y += 0.0016
-      points.rotation.x += ((-p.y * 0.3) - points.rotation.x) * 0.04
-      points.rotation.z += ((p.x * 0.25) - points.rotation.z) * 0.03
+      mesh.rotation.y += 0.0016
+      mesh.rotation.x += ((-p.y * 0.3) - mesh.rotation.x) * 0.04
+      mesh.rotation.z += ((p.x * 0.25) - mesh.rotation.z) * 0.03
       renderOnce()
     }
 
-    if (reducedMotion) {
-      material.uniforms.uReveal.value = 1
-      material.uniforms.uTime.value = 1.4
-      renderOnce()
-    } else {
-      loop()
-    }
+    if (reducedMotion) { u.uTime.value = 1.4; renderOnce() } else { loop() }
 
     const onResize = () => {
       renderer.setSize(mount.clientWidth, mount.clientHeight)
@@ -107,11 +85,10 @@ export function LiquidOrb({ bandsRef, scrollRef, reducedMotion }: Props) {
     window.addEventListener('resize', onResize)
 
     return () => {
-      cancelAnimationFrame(raf)
-      io.disconnect()
+      cancelAnimationFrame(raf); io.disconnect()
       window.removeEventListener('resize', onResize)
       window.removeEventListener('pointermove', onPointer)
-      geometry.dispose(); material.dispose(); renderer.dispose()
+      geometry.dispose(); material.dispose(); envTex.dispose(); pmrem.dispose(); renderer.dispose()
       mount.removeChild(renderer.domElement)
     }
   }, [bandsRef, scrollRef, reducedMotion])

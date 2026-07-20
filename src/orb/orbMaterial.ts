@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 
-// Shared compact Ashima simplex noise (used in the vertex shader).
 const SNOISE = /* glsl */ `
 vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x,289.0);}
 vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-0.85373472095314*r;}
@@ -24,65 +23,86 @@ float snoise(vec3 v){
   return 42.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
 }`
 
-const vertex = /* glsl */ `
-uniform float uTime, uAudioAmp, uBaseAmp, uScroll, uPixelRatio, uReveal;
-attribute float aRand;
-varying float vRand; varying float vTw; varying float vRadial;
-${SNOISE}
-void main(){
-  vRand = aRand;
-  vec3 dir = normalize(position);
-  // per-particle flowing displacement of the sphere radius
-  float n = snoise(dir * 1.5 + uTime * 0.14 + aRand * 4.0);
-  float pulse = uAudioAmp * (0.55 + 0.45 * sin(aRand * 22.0 + uTime * 3.0));
-  float radius = 1.0 + n * uBaseAmp + pulse * 0.85;
-  // reveal: particles fly in from farther out on load
-  radius = mix(radius + 1.6, radius, clamp(uReveal, 0.0, 1.0));
-  vRadial = n;
-  vec3 pos = dir * radius * (1.0 + uScroll * 0.12);
-  vec4 mv = modelViewMatrix * vec4(pos, 1.0);
-  float tw = 0.5 + 0.5 * sin(uTime * 2.2 + aRand * 40.0);
-  vTw = tw;
-  float size = (1.6 + 5.5 * aRand) * (0.75 + 0.7 * tw) + uAudioAmp * 9.0 * aRand;
-  gl_PointSize = size * uPixelRatio * (10.0 / -mv.z) * clamp(uReveal, 0.15, 1.0);
-  gl_Position = projectionMatrix * mv;
-}`
+export interface OrbUniforms {
+  uTime: { value: number }
+  uAudioAmp: { value: number }
+  uSparkle: { value: number }
+  uBaseAmp: { value: number }
+  uScroll: { value: number }
+  uSpectrum: { value: THREE.Color }
+}
 
-const fragment = /* glsl */ `
-precision highp float;
-uniform vec3 uSpectrum; uniform float uSparkle; uniform float uTime;
-varying float vRand; varying float vTw; varying float vRadial;
-vec3 spectral(float t){ return 0.5 + 0.5 * cos(6.2831 * (t + vec3(0.0, 0.33, 0.66))); }
-void main(){
-  vec2 uv = gl_PointCoord - 0.5;
-  float d = length(uv);
-  if (d > 0.5) discard;
-  float glow = smoothstep(0.5, 0.0, d);           // soft round speck
-  float core = smoothstep(0.28, 0.0, d);          // bright center
-  vec3 base = spectral(vRand * 1.2 + vRadial * 0.6 + uTime * 0.02);
-  vec3 col = mix(base, uSpectrum, 0.45);
-  col += core * 0.6 + uSparkle * vTw * 0.7;        // sparkle from treble
-  float a = glow * (0.35 + 0.65 * vTw);
-  gl_FragColor = vec4(col, a);
-}`
+export type OrbMaterial = THREE.MeshPhysicalMaterial & { userData: { uniforms: OrbUniforms } }
 
-export function createOrbMaterial(): THREE.ShaderMaterial {
-  return new THREE.ShaderMaterial({
-    uniforms: {
-      uTime: { value: 0 },
-      uAudioAmp: { value: 0 },
-      uSparkle: { value: 0 },
-      uBaseAmp: { value: 0.22 },
-      uScroll: { value: 0 },
-      uReveal: { value: 0 },
-      uPixelRatio: { value: 1 },
-      uSpectrum: { value: new THREE.Color(0x5b6cff) },
-    },
-    vertexShader: vertex,
-    fragmentShader: fragment,
+export function createOrbMaterial(): OrbMaterial {
+  const uniforms: OrbUniforms = {
+    uTime: { value: 0 },
+    uAudioAmp: { value: 0 },
+    uSparkle: { value: 0 },
+    uBaseAmp: { value: 0.14 },
+    uScroll: { value: 0 },
+    uSpectrum: { value: new THREE.Color(0x5b6cff) },
+  }
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    metalness: 0.0,
+    roughness: 0.06,
+    transmission: 1.0,
+    ior: 1.45,
+    thickness: 1.4,
+    iridescence: 1.0,
+    iridescenceIOR: 1.35,
+    iridescenceThicknessRange: [130, 460],
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.04,
+    envMapIntensity: 1.5,
     transparent: true,
-    depthWrite: false,
-    depthTest: false,
-    blending: THREE.AdditiveBlending,
+    attenuationColor: new THREE.Color(0xbfd0ff),
+    attenuationDistance: 1.4,
   })
+  mat.userData.uniforms = uniforms
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = uniforms.uTime
+    shader.uniforms.uAudioAmp = uniforms.uAudioAmp
+    shader.uniforms.uBaseAmp = uniforms.uBaseAmp
+    shader.uniforms.uScroll = uniforms.uScroll
+    shader.uniforms.uSpectrum = uniforms.uSpectrum
+    shader.uniforms.uSparkle = uniforms.uSparkle
+
+    shader.vertexShader =
+      'uniform float uTime, uAudioAmp, uBaseAmp, uScroll;\n' + SNOISE + '\n' +
+      'vec3 tim_displace(vec3 dir){ float n = snoise(dir*1.5 + uTime*0.18); float amp = uBaseAmp + uAudioAmp*0.5; float r = 1.0 + n*amp; return dir * r * (1.0 + uScroll*0.1); }\n' +
+      shader.vertexShader
+
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <beginnormal_vertex>',
+      [
+        'vec3 tim_dir = normalize(position);',
+        'vec3 tRef = abs(tim_dir.y) < 0.99 ? vec3(0.0,1.0,0.0) : vec3(1.0,0.0,0.0);',
+        'vec3 tim_t1 = normalize(cross(tRef, tim_dir));',
+        'vec3 tim_t2 = normalize(cross(tim_dir, tim_t1));',
+        'float tim_e = 0.02;',
+        'vec3 tim_p0 = tim_displace(tim_dir);',
+        'vec3 tim_pa = tim_displace(normalize(tim_dir + tim_t1*tim_e));',
+        'vec3 tim_pb = tim_displace(normalize(tim_dir + tim_t2*tim_e));',
+        'vec3 objectNormal = normalize(cross(tim_pa - tim_p0, tim_pb - tim_p0));',
+        'if (dot(objectNormal, tim_dir) < 0.0) objectNormal = -objectNormal;',
+        '#ifdef USE_TANGENT',
+        '  vec3 objectTangent = vec3( tangent.xyz );',
+        '#endif',
+      ].join('\n')
+    )
+
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      'vec3 transformed = tim_p0;'
+    )
+
+    shader.fragmentShader = 'uniform vec3 uSpectrum; uniform float uSparkle;\n' + shader.fragmentShader
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <emissivemap_fragment>',
+      '#include <emissivemap_fragment>\n  totalEmissiveRadiance += uSpectrum * (0.06 + uSparkle * 0.22);'
+    )
+  }
+  return mat as OrbMaterial
 }
