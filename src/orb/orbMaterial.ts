@@ -44,10 +44,10 @@ export function createOrbMaterial(): OrbMaterial {
     uSpectrum: { value: new THREE.Color(0x5b6cff) },
   }
   const mat = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff,
+    color: 0xe4eaff,
     metalness: 0.0,
     roughness: 0.06,
-    transmission: 1.0,
+    transmission: 0.9,
     ior: 1.45,
     thickness: 1.4,
     iridescence: 1.0,
@@ -101,7 +101,7 @@ export function createOrbMaterial(): OrbMaterial {
     shader.fragmentShader = 'uniform vec3 uSpectrum; uniform float uSparkle;\n' + shader.fragmentShader
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <emissivemap_fragment>',
-      '#include <emissivemap_fragment>\n  totalEmissiveRadiance += uSpectrum * (0.1 + uSparkle * 0.3);'
+      '#include <emissivemap_fragment>\n  totalEmissiveRadiance += uSpectrum * (0.16 + uSparkle * 0.3);'
     )
   }
   return mat as OrbMaterial

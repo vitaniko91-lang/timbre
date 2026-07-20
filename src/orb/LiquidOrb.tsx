@@ -16,14 +16,14 @@ function makeSpectrumEnv() {
   const c = document.createElement('canvas')
   c.width = 1024; c.height = 512
   const ctx = c.getContext('2d')!
+  // Match the "SOUND" headline gradient family: indigo -> cyan -> magenta -> violet.
   const g = ctx.createLinearGradient(0, 0, c.width, 0)
-  g.addColorStop(0.0, '#3320c0')
-  g.addColorStop(0.16, '#5B6CFF')
-  g.addColorStop(0.33, '#7EE8FF')
-  g.addColorStop(0.5, '#ffffff')
-  g.addColorStop(0.66, '#FF4DD2')
-  g.addColorStop(0.82, '#FFD23D')
-  g.addColorStop(1.0, '#3320c0')
+  g.addColorStop(0.0, '#5B6CFF')
+  g.addColorStop(0.22, '#7EE8FF')
+  g.addColorStop(0.45, '#ffffff')
+  g.addColorStop(0.62, '#FF4DD2')
+  g.addColorStop(0.8, '#A66CFF')
+  g.addColorStop(1.0, '#5B6CFF')
   ctx.fillStyle = g
   ctx.fillRect(0, 0, c.width, c.height)
   // bright key band up top, gentle darken toward the base for grounded reflections
