@@ -1,10 +1,7 @@
 import * as THREE from 'three'
 
-const vertex = /* glsl */ `
-uniform float uTime; uniform float uAudioAmp; uniform float uBaseAmp; uniform float uScroll;
-varying vec3 vNormal; varying vec3 vView; varying float vDisp;
-
-// classic simplex noise (Ashima) — compact
+// Shared compact Ashima simplex noise (used in the vertex shader).
+const SNOISE = /* glsl */ `
 vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x,289.0);}
 vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-0.85373472095314*r;}
 float snoise(vec3 v){
@@ -25,41 +22,49 @@ float snoise(vec3 v){
   p0*=norm.x;p1*=norm.y;p2*=norm.z;p3*=norm.w;
   vec4 m=max(0.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.0); m=m*m;
   return 42.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
-}
+}`
 
+const vertex = /* glsl */ `
+uniform float uTime, uAudioAmp, uBaseAmp, uScroll, uPixelRatio, uReveal;
+attribute float aRand;
+varying float vRand; varying float vTw; varying float vRadial;
+${SNOISE}
 void main(){
-  vNormal = normalize(normalMatrix * normal);
-  float amp = uBaseAmp + uAudioAmp * 0.35;
-  float n = snoise(normal * 1.6 + uTime * 0.25);
-  float disp = n * amp * (1.0 + uScroll * 0.4);
-  vDisp = disp;
-  vec3 pos = position + normal * disp;
-  vec4 mv = modelViewMatrix * vec4(pos,1.0);
-  vView = normalize(-mv.xyz);
+  vRand = aRand;
+  vec3 dir = normalize(position);
+  // per-particle flowing displacement of the sphere radius
+  float n = snoise(dir * 1.5 + uTime * 0.14 + aRand * 4.0);
+  float pulse = uAudioAmp * (0.55 + 0.45 * sin(aRand * 22.0 + uTime * 3.0));
+  float radius = 1.0 + n * uBaseAmp + pulse * 0.85;
+  // reveal: particles fly in from farther out on load
+  radius = mix(radius + 1.6, radius, clamp(uReveal, 0.0, 1.0));
+  vRadial = n;
+  vec3 pos = dir * radius * (1.0 + uScroll * 0.12);
+  vec4 mv = modelViewMatrix * vec4(pos, 1.0);
+  float tw = 0.5 + 0.5 * sin(uTime * 2.2 + aRand * 40.0);
+  vTw = tw;
+  float size = (1.6 + 5.5 * aRand) * (0.75 + 0.7 * tw) + uAudioAmp * 9.0 * aRand;
+  gl_PointSize = size * uPixelRatio * (10.0 / -mv.z) * clamp(uReveal, 0.15, 1.0);
   gl_Position = projectionMatrix * mv;
-}
-`
+}`
 
 const fragment = /* glsl */ `
 precision highp float;
 uniform vec3 uSpectrum; uniform float uSparkle; uniform float uTime;
-varying vec3 vNormal; varying vec3 vView; varying float vDisp;
-
-// thin-film-ish spectral sweep from fresnel term
-vec3 spectral(float t){
-  return 0.5 + 0.5 * cos(6.2831 * (t + vec3(0.0,0.33,0.66)));
-}
+varying float vRand; varying float vTw; varying float vRadial;
+vec3 spectral(float t){ return 0.5 + 0.5 * cos(6.2831 * (t + vec3(0.0, 0.33, 0.66))); }
 void main(){
-  float fres = pow(1.0 - max(dot(vNormal, vView), 0.0), 2.2);
-  vec3 irid = spectral(fres * 1.3 + vDisp * 2.0 + uTime * 0.05);
-  vec3 pearl = mix(vec3(0.96,0.97,1.0), uSpectrum, 0.55);
-  vec3 col = mix(pearl, irid, fres * 0.85);
-  // audio-driven color push + treble sparkle on the rim
-  col = mix(col, uSpectrum, 0.25);
-  col += fres * uSparkle * 0.6;
-  gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
-}
-`
+  vec2 uv = gl_PointCoord - 0.5;
+  float d = length(uv);
+  if (d > 0.5) discard;
+  float glow = smoothstep(0.5, 0.0, d);           // soft round speck
+  float core = smoothstep(0.28, 0.0, d);          // bright center
+  vec3 base = spectral(vRand * 1.2 + vRadial * 0.6 + uTime * 0.02);
+  vec3 col = mix(base, uSpectrum, 0.45);
+  col += core * 0.6 + uSparkle * vTw * 0.7;        // sparkle from treble
+  float a = glow * (0.35 + 0.65 * vTw);
+  gl_FragColor = vec4(col, a);
+}`
 
 export function createOrbMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
@@ -67,11 +72,17 @@ export function createOrbMaterial(): THREE.ShaderMaterial {
       uTime: { value: 0 },
       uAudioAmp: { value: 0 },
       uSparkle: { value: 0 },
-      uBaseAmp: { value: 0.12 },
+      uBaseAmp: { value: 0.22 },
       uScroll: { value: 0 },
+      uReveal: { value: 0 },
+      uPixelRatio: { value: 1 },
       uSpectrum: { value: new THREE.Color(0x5b6cff) },
     },
     vertexShader: vertex,
     fragmentShader: fragment,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    blending: THREE.AdditiveBlending,
   })
 }
