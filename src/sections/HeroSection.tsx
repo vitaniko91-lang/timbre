@@ -14,7 +14,7 @@ interface Props {
 
 export function HeroSection({ bandsRef, scrollRef, playing, onToggle, reducedMotion }: Props) {
   return (
-    <section className="relative flex min-h-screen items-center overflow-hidden px-[6vw]">
+    <section className="relative flex min-h-screen items-center overflow-hidden px-[6vw] pt-24 lg:pt-0">
       <div className="relative z-10 mx-auto grid w-full max-w-[1280px] items-center gap-[3vw] lg:grid-cols-[1.05fr_.95fr]">
         <div>
           <p className="mb-6 text-xs font-semibold uppercase tracking-[0.24em] text-muted">TIMBRE · premium audio</p>

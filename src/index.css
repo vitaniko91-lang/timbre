@@ -21,6 +21,8 @@ html, body { background: var(--color-bg); color: var(--color-ink); }
 body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 :focus-visible { outline: 2px solid var(--color-indigo); outline-offset: 3px; }
 
-@media (prefers-reduced-motion: reduce) {
-  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
-}
+/* Reduced motion is handled per-component, not with a global suppressor
+   (house web-anti-patterns rule): the WebGL orb renders a single static frame
+   (LiquidOrb), SectionReveal reveals + Lenis smooth-scroll are disabled via
+   usePrefersReducedMotion, and hover transitions use Tailwind's `motion-reduce:`
+   utilities. Nothing else animates in CSS, so no global override is needed. */
