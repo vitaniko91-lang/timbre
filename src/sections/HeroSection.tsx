@@ -34,8 +34,17 @@ export function HeroSection({ bandsRef, scrollRef, playing, onToggle, reducedMot
           <p className="mb-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.28em] text-muted">
             <span className="h-px w-8 bg-indigo/60" /> TIMBRE · premium audio
           </p>
-          <h1 className="font-display text-[clamp(48px,7.4vw,116px)] font-semibold leading-[0.9] tracking-[-0.04em] text-ink">
-            SEE <br />THE <span className="bg-[linear-gradient(100deg,#5B6CFF,#7EE8FF_40%,#FF4DD2_80%)] bg-clip-text text-transparent">SOUND</span>
+          <h1
+            aria-label="See the sound"
+            className="mt-8 flex items-center gap-x-[0.4em] font-display text-[clamp(48px,7.4vw,116px)] font-semibold leading-[0.9] tracking-[-0.04em] text-ink"
+          >
+            <span className="flex flex-col">
+              <span>{'SEE '}</span>
+              <span>{'THE '}</span>
+            </span>
+            <span className="bg-[linear-gradient(100deg,#5B6CFF,#7EE8FF_40%,#FF4DD2_80%)] bg-clip-text text-transparent">
+              SOUND
+            </span>
           </h1>
           <p className="mt-7 max-w-[32ch] text-lg leading-relaxed text-muted">
             A single drop of liquid glass — it ripples, refracts and re-colors in real time to the sound you play.
