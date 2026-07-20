@@ -47,7 +47,7 @@ export function createOrbMaterial(): OrbMaterial {
     color: 0xe4eaff,
     metalness: 0.0,
     roughness: 0.06,
-    transmission: 0.9,
+    transmission: 0.72,
     ior: 1.45,
     thickness: 1.4,
     iridescence: 1.0,
@@ -101,7 +101,18 @@ export function createOrbMaterial(): OrbMaterial {
     shader.fragmentShader = 'uniform vec3 uSpectrum; uniform float uSparkle;\n' + shader.fragmentShader
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <emissivemap_fragment>',
-      '#include <emissivemap_fragment>\n  totalEmissiveRadiance += uSpectrum * (0.16 + uSparkle * 0.3);'
+      [
+        '#include <emissivemap_fragment>',
+        '{',
+        // sweep the SOUND-headline gradient (indigo -> cyan -> magenta) across the surface
+        '  float tg = clamp(0.5 + 0.62 * normal.x, 0.0, 1.0);',
+        '  vec3 tA = vec3(0.357, 0.424, 1.0);',   // indigo  #5B6CFF
+        '  vec3 tB = vec3(0.494, 0.909, 1.0);',   // cyan    #7EE8FF
+        '  vec3 tC = vec3(1.0, 0.302, 0.824);',   // magenta #FF4DD2
+        '  vec3 tGrad = tg < 0.5 ? mix(tA, tB, tg * 2.0) : mix(tB, tC, (tg - 0.5) * 2.0);',
+        '  totalEmissiveRadiance += tGrad * 0.32 + uSpectrum * (0.06 + uSparkle * 0.3);',
+        '}',
+      ].join('\n')
     )
   }
   return mat as OrbMaterial
