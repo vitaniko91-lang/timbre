@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { createOrbMaterial } from './orbMaterial'
 import { bandsToUniforms } from '../audio/bandsToUniforms'
 import type { Bands } from '../audio/computeBands'
@@ -9,6 +8,35 @@ interface Props {
   bandsRef: React.RefObject<Bands>
   scrollRef: React.RefObject<number>
   reducedMotion: boolean
+}
+
+/** A colorful equirect environment so the glass reflects/refracts a real spectrum
+ *  (a neutral studio env leaves the glass looking clear/grey). */
+function makeSpectrumEnv() {
+  const c = document.createElement('canvas')
+  c.width = 1024; c.height = 512
+  const ctx = c.getContext('2d')!
+  const g = ctx.createLinearGradient(0, 0, c.width, 0)
+  g.addColorStop(0.0, '#3320c0')
+  g.addColorStop(0.16, '#5B6CFF')
+  g.addColorStop(0.33, '#7EE8FF')
+  g.addColorStop(0.5, '#ffffff')
+  g.addColorStop(0.66, '#FF4DD2')
+  g.addColorStop(0.82, '#FFD23D')
+  g.addColorStop(1.0, '#3320c0')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, c.width, c.height)
+  // bright key band up top, gentle darken toward the base for grounded reflections
+  const v = ctx.createLinearGradient(0, 0, 0, c.height)
+  v.addColorStop(0, 'rgba(255,255,255,0.95)')
+  v.addColorStop(0.32, 'rgba(255,255,255,0.0)')
+  v.addColorStop(1, 'rgba(16,12,50,0.35)')
+  ctx.fillStyle = v
+  ctx.fillRect(0, 0, c.width, c.height)
+  const tex = new THREE.CanvasTexture(c)
+  tex.mapping = THREE.EquirectangularReflectionMapping
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
 }
 
 export function LiquidOrb({ bandsRef, scrollRef, reducedMotion }: Props) {
@@ -30,12 +58,14 @@ export function LiquidOrb({ bandsRef, scrollRef, reducedMotion }: Props) {
     camera.position.z = 3.6
 
     const pmrem = new THREE.PMREMGenerator(renderer)
-    const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+    const srcEnv = makeSpectrumEnv()
+    const envTex = pmrem.fromEquirectangular(srcEnv).texture
+    srcEnv.dispose()
     scene.environment = envTex
 
     // key + rim lights to give the glass specular pop
-    const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(2, 3, 4); scene.add(key)
-    const rim = new THREE.DirectionalLight(0x9ab4ff, 1.4); rim.position.set(-3, -1, -2); scene.add(rim)
+    const key = new THREE.DirectionalLight(0xffffff, 1.4); key.position.set(2, 3, 4); scene.add(key)
+    const rim = new THREE.DirectionalLight(0xff9ae0, 1.0); rim.position.set(-3, -1, -2); scene.add(rim)
 
     const geometry = new THREE.IcosahedronGeometry(1, 48)
     const material = createOrbMaterial()

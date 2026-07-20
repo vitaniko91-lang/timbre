@@ -52,10 +52,10 @@ export function createOrbMaterial(): OrbMaterial {
     thickness: 1.4,
     iridescence: 1.0,
     iridescenceIOR: 1.35,
-    iridescenceThicknessRange: [130, 460],
+    iridescenceThicknessRange: [100, 800],
     clearcoat: 1.0,
     clearcoatRoughness: 0.04,
-    envMapIntensity: 1.5,
+    envMapIntensity: 1.75,
     transparent: true,
     attenuationColor: new THREE.Color(0xbfd0ff),
     attenuationDistance: 1.4,
@@ -101,7 +101,7 @@ export function createOrbMaterial(): OrbMaterial {
     shader.fragmentShader = 'uniform vec3 uSpectrum; uniform float uSparkle;\n' + shader.fragmentShader
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <emissivemap_fragment>',
-      '#include <emissivemap_fragment>\n  totalEmissiveRadiance += uSpectrum * (0.06 + uSparkle * 0.22);'
+      '#include <emissivemap_fragment>\n  totalEmissiveRadiance += uSpectrum * (0.1 + uSparkle * 0.3);'
     )
   }
   return mat as OrbMaterial

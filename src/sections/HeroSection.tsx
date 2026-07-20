@@ -38,7 +38,7 @@ export function HeroSection({ bandsRef, scrollRef, playing, onToggle, reducedMot
             SEE <br />THE <span className="bg-[linear-gradient(100deg,#5B6CFF,#7EE8FF_40%,#FF4DD2_80%)] bg-clip-text text-transparent">SOUND</span>
           </h1>
           <p className="mt-7 max-w-[32ch] text-lg leading-relaxed text-muted">
-            A single living form of thousands of particles — it ripples, refracts and re-colors in real time to whatever you play.
+            A single drop of liquid glass — it ripples, refracts and re-colors in real time to the sound you play.
           </p>
           <div className="mt-9"><PlayButton playing={playing} onToggle={onToggle} /></div>
         </div>
