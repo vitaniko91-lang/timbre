@@ -110,7 +110,7 @@ export function createOrbMaterial(): OrbMaterial {
         '  vec3 tB = vec3(0.494, 0.909, 1.0);',   // cyan    #7EE8FF
         '  vec3 tC = vec3(1.0, 0.302, 0.824);',   // magenta #FF4DD2
         '  vec3 tGrad = tg < 0.5 ? mix(tA, tB, tg * 2.0) : mix(tB, tC, (tg - 0.5) * 2.0);',
-        '  totalEmissiveRadiance += tGrad * 0.44 + uSpectrum * (0.06 + uSparkle * 0.3);',
+        '  totalEmissiveRadiance += tGrad * 0.51 + uSpectrum * (0.06 + uSparkle * 0.3);',
         '}',
       ].join('\n')
     )
